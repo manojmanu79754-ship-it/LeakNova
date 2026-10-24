@@ -1,0 +1,6 @@
+{
+  "name": "Smart City Water Monitor",
+  "description": "Smart city water distribution network monitoring platform for leak detection, localization, sizing, and NRW reduction with EPANET simulation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
