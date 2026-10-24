@@ -255,3 +255,177 @@ export function getSimulatedWorkOrders(isSimulating: boolean, isDispatched: bool
 
   return [emergencyOrder, ...INITIAL_WORK_ORDERS];
 }
+
+export interface IsometricHotspot {
+  id: string;
+  label: string;
+  type: 'leak' | 'sensor' | 'valve' | 'pump' | 'junction' | 'reservoir';
+  xPct: number;
+  yPct: number;
+  pressureNominal: number;
+  pressureSim: number;
+  flowLps: number;
+  spec: string;
+  description: string;
+  subType?: string;
+}
+
+export const ISOMETRIC_HOTSPOTS: IsometricHotspot[] = [
+  {
+    id: 'J-108',
+    label: 'Junction J-108 (Target Rupture)',
+    type: 'leak',
+    xPct: 58.2,
+    yPct: 31.0,
+    pressureNominal: 63.0,
+    pressureSim: 44.6,
+    flowLps: 85,
+    spec: '16" Ductile Iron Flanged Arterial Tee',
+    description: 'Critical physical fracture localized on Oak & 5th Ave arterial branch. Stress zone active.',
+    subType: 'Manifold Tee Rupture'
+  },
+  {
+    id: 'V-108A',
+    label: 'Isolation Valve V-108A',
+    type: 'valve',
+    xPct: 52.8,
+    yPct: 35.2,
+    pressureNominal: 63.5,
+    pressureSim: 48.0,
+    flowLps: 85,
+    spec: '16" Resilient Wedge Flanged Gate Valve',
+    description: 'Upstream isolation point on Oak St. Disconnects main supply to rupture node.',
+    subType: 'Upstream Isolation'
+  },
+  {
+    id: 'V-108B',
+    label: 'Isolation Valve V-108B',
+    type: 'valve',
+    xPct: 62.4,
+    yPct: 39.4,
+    pressureNominal: 62.8,
+    pressureSim: 46.5,
+    flowLps: 42,
+    spec: '14" OS&Y Handwheel Flanged Gate Valve',
+    description: 'Downstream isolation point on branch loop. Protects City Central Hospital bypass flow.',
+    subType: 'Downstream Isolation'
+  },
+  {
+    id: 'PS-01',
+    label: 'Booster Pump Station PS-01',
+    type: 'pump',
+    xPct: 46.6,
+    yPct: 76.5,
+    pressureNominal: 64.7,
+    pressureSim: 58.2,
+    flowLps: 145,
+    spec: 'Centrifugal Inline Booster • 35.5 kW • +38.5m Head',
+    description: 'Dual-suction municipal pump maintaining distribution head across Sector 4B.',
+    subType: 'Primary Booster'
+  },
+  {
+    id: 'S-01',
+    label: 'Sensor S-01 (Bulk Inflow)',
+    type: 'sensor',
+    xPct: 22.8,
+    yPct: 62.0,
+    pressureNominal: 65.0,
+    pressureSim: 64.2,
+    flowLps: 140,
+    spec: 'Electromagnetic Flowmeter & Pressure Transducer',
+    description: 'Bulk supply metering station. Reports baseline diurnal inflow into DMA-04.',
+    subType: 'Inflow Logger'
+  },
+  {
+    id: 'S-02',
+    label: 'Sensor S-02 (Pump Discharge)',
+    type: 'sensor',
+    xPct: 54.0,
+    yPct: 80.5,
+    pressureNominal: 64.0,
+    pressureSim: 62.5,
+    flowLps: 98,
+    spec: 'Acoustic Hydrophone & Dynamic Pressure Cell',
+    description: 'Optimized sensor monitoring booster pump discharge gradients and cavitation.',
+    subType: 'Discharge Logger'
+  },
+  {
+    id: 'S-03',
+    label: 'Sensor S-03 (Mid-Span Acoustic)',
+    type: 'sensor',
+    xPct: 51.5,
+    yPct: 30.0,
+    pressureNominal: 64.0,
+    pressureSim: 55.0,
+    flowLps: 92,
+    spec: 'IoT Acoustic Correlator Transducer',
+    description: 'Immediate upstream acoustic listening post. Captured high-frequency rupture soundings.',
+    subType: 'Acoustic Transducer'
+  },
+  {
+    id: 'S-04',
+    label: 'Sensor S-04 (Sector 4B Downstream)',
+    type: 'sensor',
+    xPct: 64.8,
+    yPct: 74.0,
+    pressureNominal: 62.0,
+    pressureSim: 46.0,
+    flowLps: 42,
+    spec: 'Downstream Transient Wave Recorder',
+    description: 'Detects transient water hammer waves and downstream residual hydraulic head.',
+    subType: 'Transient Recorder'
+  },
+  {
+    id: 'S-05',
+    label: 'Sensor S-05 (North Feeder Loop)',
+    type: 'sensor',
+    xPct: 49.0,
+    yPct: 22.0,
+    pressureNominal: 62.5,
+    pressureSim: 61.0,
+    flowLps: 40,
+    spec: 'Ultra-low power IoT velocity logger',
+    description: 'Residential feeder loop acoustic monitoring node.',
+    subType: 'Feeder Logger'
+  },
+  {
+    id: 'S-06',
+    label: 'Sensor S-06 (Boundary DMZ)',
+    type: 'sensor',
+    xPct: 69.5,
+    yPct: 39.0,
+    pressureNominal: 61.0,
+    pressureSim: 59.0,
+    flowLps: 36,
+    spec: 'District Boundary Multi-Parameter Cell',
+    description: 'DMA boundary meter checking inter-district transfer balance.',
+    subType: 'Boundary Logger'
+  },
+  {
+    id: 'J-102',
+    label: 'Header Cross J-102',
+    type: 'junction',
+    xPct: 30.5,
+    yPct: 56.5,
+    pressureNominal: 64.5,
+    pressureSim: 63.8,
+    flowLps: 135,
+    spec: '20" x 16" Flanged 4-Way Cross Manifold',
+    description: 'Arterial distribution node splitting bulk flow to north and south feeders.',
+    subType: 'Main Cross Manifold'
+  },
+  {
+    id: 'R-1',
+    label: 'Bulk Feed Reservoir R-1 Flange',
+    type: 'reservoir',
+    xPct: 9.5,
+    yPct: 35.5,
+    pressureNominal: 65.5,
+    pressureSim: 65.5,
+    flowLps: 140,
+    spec: '24" High-Pressure Ductile Iron Main Feed',
+    description: 'Clearwell reservoir intake flange connection from municipal treatment works.',
+    subType: 'Intake Flange'
+  }
+];
+

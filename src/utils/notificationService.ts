@@ -24,15 +24,43 @@ export interface SmsMessage {
   status: 'Delivered' | 'Received' | 'Queued';
 }
 
+export const USER_ALERT_PHONE = '7975453101';
+export const USER_ALERT_PHONE_FORMATTED = '+91 79754 53101';
+
 export const DEFAULT_SMS_CONFIG: SmsRecipientConfig = {
-  phoneNumber: '+1 (555) 349-2810',
-  name: 'Marcus Vance, P.E.',
+  phoneNumber: USER_ALERT_PHONE_FORMATTED,
+  name: 'Chief On-Call Engineer',
   role: 'Chief Utility Engineer',
   sendOnCriticalBurst: true,
   sendValveIsolationProtocol: true,
-  sendDailyNrwDigest: false,
+  sendDailyNrwDigest: true,
   smsGateway: 'Twilio Cloud SMS'
 };
+
+/**
+ * Normalizes and formats raw phone numbers into standard readable formats.
+ * For 10-digit Indian numbers (e.g. 7975453101), formats as +91 79754 53101.
+ */
+export function formatPhoneNumber(phone: string): string {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) {
+    if (phone.trim().startsWith('+1') || phone.trim().startsWith('1')) {
+      return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+    // Default 10-digit format (Indian mobile series starting 6-9, like 7975453101)
+    return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+  }
+  if (digits.length === 12 && digits.startsWith('91')) {
+    const local = digits.slice(2);
+    return `+91 ${local.slice(0, 5)} ${local.slice(5)}`;
+  }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    const local = digits.slice(1);
+    return `+1 (${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6)}`;
+  }
+  return phone.trim();
+}
 
 /**
  * Formats standard municipal emergency SMS dispatch payload.
@@ -48,11 +76,12 @@ export function formatEmergencySms(
 }
 
 /**
- * Validates international E.164 or formatted domestic phone numbers.
+ * Validates international E.164 or formatted domestic phone numbers (10 to 15 digits).
  */
 export function isValidPhoneNumber(phone: string): boolean {
-  const cleaned = phone.replace(/[^\d+]/g, '');
-  return cleaned.length >= 10 && cleaned.length <= 15;
+  if (!phone) return false;
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 10 && digits.length <= 15;
 }
 
 /**

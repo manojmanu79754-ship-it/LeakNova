@@ -3,8 +3,11 @@ import assert from 'node:assert/strict';
 import {
   formatEmergencySms,
   isValidPhoneNumber,
+  formatPhoneNumber,
   generateCrewAcknowledgmentSms,
-  DEFAULT_SMS_CONFIG
+  DEFAULT_SMS_CONFIG,
+  USER_ALERT_PHONE,
+  USER_ALERT_PHONE_FORMATTED
 } from './notificationService';
 
 test('formatEmergencySms builds concise municipal alert string', () => {
@@ -18,12 +21,22 @@ test('formatEmergencySms builds concise municipal alert string', () => {
   assert.ok(sms.includes('aquasense-smart-city-monitor.ai.studio'));
 });
 
-test('isValidPhoneNumber accepts valid international and domestic phone formats', () => {
+test('isValidPhoneNumber accepts valid international and domestic phone formats including 7975453101', () => {
+  assert.equal(isValidPhoneNumber('7975453101'), true);
+  assert.equal(isValidPhoneNumber('+91 79754 53101'), true);
+  assert.equal(isValidPhoneNumber('+917975453101'), true);
   assert.equal(isValidPhoneNumber('+1 (555) 349-2810'), true);
   assert.equal(isValidPhoneNumber('5553492810'), true);
   assert.equal(isValidPhoneNumber('+44 7911 123456'), true);
   assert.equal(isValidPhoneNumber('123'), false);
   assert.equal(isValidPhoneNumber('invalid-text'), false);
+});
+
+test('formatPhoneNumber formats Indian 10-digit number 7975453101 properly', () => {
+  assert.equal(formatPhoneNumber('7975453101'), '+91 79754 53101');
+  assert.equal(formatPhoneNumber('+917975453101'), '+91 79754 53101');
+  assert.equal(USER_ALERT_PHONE, '7975453101');
+  assert.equal(USER_ALERT_PHONE_FORMATTED, '+91 79754 53101');
 });
 
 test('generateCrewAcknowledgmentSms creates valid inbound reply record', () => {
@@ -34,7 +47,8 @@ test('generateCrewAcknowledgmentSms creates valid inbound reply record', () => {
   assert.equal(reply.status, 'Received');
 });
 
-test('DEFAULT_SMS_CONFIG has valid defaults', () => {
+test('DEFAULT_SMS_CONFIG has valid defaults configured to 7975453101', () => {
+  assert.equal(DEFAULT_SMS_CONFIG.phoneNumber, '+91 79754 53101');
   assert.equal(DEFAULT_SMS_CONFIG.sendOnCriticalBurst, true);
   assert.equal(DEFAULT_SMS_CONFIG.sendValveIsolationProtocol, true);
   assert.equal(isValidPhoneNumber(DEFAULT_SMS_CONFIG.phoneNumber), true);

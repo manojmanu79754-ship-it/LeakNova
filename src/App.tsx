@@ -65,7 +65,12 @@ import {
   Wifi,
   Wrench,
   X,
-  Zap
+  Zap,
+  Box,
+  Crosshair,
+  Orbit,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 import {
   Bar,
@@ -110,6 +115,9 @@ import {
 } from './utils/dashboardData';
 import {
   DEFAULT_SMS_CONFIG,
+  USER_ALERT_PHONE,
+  USER_ALERT_PHONE_FORMATTED,
+  formatPhoneNumber,
   formatEmergencySms,
   isValidPhoneNumber,
   generateCrewAcknowledgmentSms,
@@ -129,6 +137,7 @@ import {
   SupabaseSyncResult,
   fetchRemoteWorkOrders
 } from './utils/supabaseSync.ts';
+import { Epanet3DViewer } from './components/Epanet3DViewer';
 
 // EPANET Network Topology definitions for SVG Map
 interface NetworkNode {
@@ -294,6 +303,182 @@ const PIPE_SEGMENTS = [
   { from: 'J-108', to: 'S-06', diameter: '10" Cross-link', strokeWidth: 2 }
 ];
 
+// 3D CAD Piping Network Asset URL
+const ISOMETRIC_CAD_IMAGE_URL = '/assets/aistudio/Gemini_Generated_Image_bl06flbl06flbl06_67926709.png';
+
+export interface IsometricHotspot {
+  id: string;
+  label: string;
+  type: 'leak' | 'sensor' | 'valve' | 'pump' | 'junction' | 'reservoir';
+  xPct: number;
+  yPct: number;
+  pressureNominal: number;
+  pressureSim: number;
+  flowLps: number;
+  spec: string;
+  description: string;
+  subType?: string;
+}
+
+export const ISOMETRIC_HOTSPOTS: IsometricHotspot[] = [
+  {
+    id: 'J-108',
+    label: 'Junction J-108 (Target Rupture)',
+    type: 'leak',
+    xPct: 58.2,
+    yPct: 31.0,
+    pressureNominal: 63.0,
+    pressureSim: 44.6,
+    flowLps: 85,
+    spec: '16" Ductile Iron Flanged Arterial Tee',
+    description: 'Critical physical fracture localized on Oak & 5th Ave arterial branch. Stress zone active.',
+    subType: 'Manifold Tee Rupture'
+  },
+  {
+    id: 'V-108A',
+    label: 'Isolation Valve V-108A',
+    type: 'valve',
+    xPct: 52.8,
+    yPct: 35.2,
+    pressureNominal: 63.5,
+    pressureSim: 48.0,
+    flowLps: 85,
+    spec: '16" Resilient Wedge Flanged Gate Valve',
+    description: 'Upstream isolation point on Oak St. Disconnects main supply to rupture node.',
+    subType: 'Upstream Isolation'
+  },
+  {
+    id: 'V-108B',
+    label: 'Isolation Valve V-108B',
+    type: 'valve',
+    xPct: 62.4,
+    yPct: 39.4,
+    pressureNominal: 62.8,
+    pressureSim: 46.5,
+    flowLps: 42,
+    spec: '14" OS&Y Handwheel Flanged Gate Valve',
+    description: 'Downstream isolation point on branch loop. Protects City Central Hospital bypass flow.',
+    subType: 'Downstream Isolation'
+  },
+  {
+    id: 'PS-01',
+    label: 'Booster Pump Station PS-01',
+    type: 'pump',
+    xPct: 46.6,
+    yPct: 76.5,
+    pressureNominal: 64.7,
+    pressureSim: 58.2,
+    flowLps: 145,
+    spec: 'Centrifugal Inline Booster • 35.5 kW • +38.5m Head',
+    description: 'Dual-suction municipal pump maintaining distribution head across Sector 4B.',
+    subType: 'Primary Booster'
+  },
+  {
+    id: 'S-01',
+    label: 'Sensor S-01 (Bulk Inflow)',
+    type: 'sensor',
+    xPct: 22.8,
+    yPct: 62.0,
+    pressureNominal: 65.0,
+    pressureSim: 64.2,
+    flowLps: 140,
+    spec: 'Electromagnetic Flowmeter & Pressure Transducer',
+    description: 'Bulk supply metering station. Reports baseline diurnal inflow into DMA-04.',
+    subType: 'Inflow Logger'
+  },
+  {
+    id: 'S-02',
+    label: 'Sensor S-02 (Pump Discharge)',
+    type: 'sensor',
+    xPct: 54.0,
+    yPct: 80.5,
+    pressureNominal: 64.0,
+    pressureSim: 62.5,
+    flowLps: 98,
+    spec: 'Acoustic Hydrophone & Dynamic Pressure Cell',
+    description: 'Optimized sensor monitoring booster pump discharge gradients and cavitation.',
+    subType: 'Discharge Logger'
+  },
+  {
+    id: 'S-03',
+    label: 'Sensor S-03 (Mid-Span Acoustic)',
+    type: 'sensor',
+    xPct: 51.5,
+    yPct: 30.0,
+    pressureNominal: 64.0,
+    pressureSim: 55.0,
+    flowLps: 92,
+    spec: 'IoT Acoustic Correlator Transducer',
+    description: 'Immediate upstream acoustic listening post. Captured high-frequency rupture soundings.',
+    subType: 'Acoustic Transducer'
+  },
+  {
+    id: 'S-04',
+    label: 'Sensor S-04 (Sector 4B Downstream)',
+    type: 'sensor',
+    xPct: 64.8,
+    yPct: 74.0,
+    pressureNominal: 62.0,
+    pressureSim: 46.0,
+    flowLps: 42,
+    spec: 'Downstream Transient Wave Recorder',
+    description: 'Detects transient water hammer waves and downstream residual hydraulic head.',
+    subType: 'Transient Recorder'
+  },
+  {
+    id: 'S-05',
+    label: 'Sensor S-05 (North Feeder Loop)',
+    type: 'sensor',
+    xPct: 49.0,
+    yPct: 22.0,
+    pressureNominal: 62.5,
+    pressureSim: 61.0,
+    flowLps: 40,
+    spec: 'Ultra-low power IoT velocity logger',
+    description: 'Residential feeder loop acoustic monitoring node.',
+    subType: 'Feeder Logger'
+  },
+  {
+    id: 'S-06',
+    label: 'Sensor S-06 (Boundary DMZ)',
+    type: 'sensor',
+    xPct: 69.5,
+    yPct: 39.0,
+    pressureNominal: 61.0,
+    pressureSim: 59.0,
+    flowLps: 36,
+    spec: 'District Boundary Multi-Parameter Cell',
+    description: 'DMA boundary meter checking inter-district transfer balance.',
+    subType: 'Boundary Logger'
+  },
+  {
+    id: 'J-102',
+    label: 'Header Cross J-102',
+    type: 'junction',
+    xPct: 30.5,
+    yPct: 56.5,
+    pressureNominal: 64.5,
+    pressureSim: 63.8,
+    flowLps: 135,
+    spec: '20" x 16" Flanged 4-Way Cross Manifold',
+    description: 'Arterial distribution node splitting bulk flow to north and south feeders.',
+    subType: 'Main Cross Manifold'
+  },
+  {
+    id: 'R-1',
+    label: 'Bulk Feed Reservoir R-1 Flange',
+    type: 'reservoir',
+    xPct: 9.5,
+    yPct: 35.5,
+    pressureNominal: 65.5,
+    pressureSim: 65.5,
+    flowLps: 140,
+    spec: '24" High-Pressure Ductile Iron Main Feed',
+    description: 'Clearwell reservoir intake flange connection from municipal treatment works.',
+    subType: 'Intake Flange'
+  }
+];
+
 type ActiveDashboardTab = 'live_monitoring' | 'nrw_audit' | 'sensor_placement' | 'work_orders';
 
 export default function App() {
@@ -307,14 +492,50 @@ export default function App() {
   const [customDataset, setCustomDataset] = useState<{ time: string; actual: number; expected: number; pressure: number }[] | null>(null);
   const [csvUploadFeedback, setCsvUploadFeedback] = useState<string | null>(null);
 
+  // 3D Isometric CAD Digital Twin controls
+  const [cadViewMode, setCadViewMode] = useState<'interactive_3d' | 'isometric_3d' | 'schematic_2d'>('interactive_3d');
+  const [cadShowSensors, setCadShowSensors] = useState<boolean>(true);
+  const [cadShowValves, setCadShowValves] = useState<boolean>(true);
+  const [cadShowStress, setCadShowStress] = useState<boolean>(true);
+  const [cadShowDimensions, setCadShowDimensions] = useState<boolean>(true);
+  const [isolatedValves, setIsolatedValves] = useState<string[]>([]);
+  const [selectedHotspot, setSelectedHotspot] = useState<IsometricHotspot | null>(ISOMETRIC_HOTSPOTS[0]);
+  const [cadZoom, setCadZoom] = useState<number>(1.0);
+
   // Sensor placement interactive budget slider
   const [sensorBudgetK, setSensorBudgetK] = useState<number>(6);
 
   // Notification and SMS Receiving Options & Feed
   const [showSmsModal, setShowSmsModal] = useState<boolean>(false);
   const [smsModalTab, setSmsModalTab] = useState<'phone_preview' | 'recipient_settings'>('phone_preview');
-  const [smsConfig, setSmsConfig] = useState<SmsRecipientConfig>(DEFAULT_SMS_CONFIG);
-  const [smsPhoneInput, setSmsPhoneInput] = useState<string>(DEFAULT_SMS_CONFIG.phoneNumber);
+  const [smsConfig, setSmsConfig] = useState<SmsRecipientConfig>(() => {
+    try {
+      const saved = localStorage.getItem('leaknova_sms_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.phoneNumber && !parsed.phoneNumber.includes('349-2810')) {
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_SMS_CONFIG;
+  });
+  const [smsPhoneInput, setSmsPhoneInput] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('leaknova_sms_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.phoneNumber && !parsed.phoneNumber.includes('349-2810')) {
+          return parsed.phoneNumber;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return USER_ALERT_PHONE_FORMATTED;
+  });
   const [smsNameInput, setSmsNameInput] = useState<string>(DEFAULT_SMS_CONFIG.name);
   const [smsGatewayInput, setSmsGatewayInput] = useState<SmsRecipientConfig['smsGateway']>(DEFAULT_SMS_CONFIG.smsGateway);
   const [manualSmsText, setManualSmsText] = useState<string>('');
@@ -325,10 +546,10 @@ export default function App() {
     {
       id: 'sms-init-1',
       timestamp: '08:00',
-      recipientPhone: DEFAULT_SMS_CONFIG.phoneNumber,
-      recipientName: DEFAULT_SMS_CONFIG.name,
+      recipientPhone: USER_ALERT_PHONE_FORMATTED,
+      recipientName: 'Lead Engineer (7975453101)',
       direction: 'OUTBOUND_ALERT',
-      messageText: 'EPANET SCADA Morning Sync: DMA-04 diurnal baseline active. 6/6 acoustic transducers reporting nominal hydraulic head (64.8 psi).',
+      messageText: `EPANET SCADA Dispatch Sync: Active SMS emergency notifications configured for mobile #${USER_ALERT_PHONE} (${USER_ALERT_PHONE_FORMATTED}). DMA-04 diurnal baseline active. 6/6 acoustic transducers online.`,
       severity: 'INFO',
       status: 'Delivered'
     }
@@ -463,6 +684,24 @@ export default function App() {
     setTimeout(() => setCopiedSql(false), 2500);
   };
 
+  const toggleValveIsolation = (valveId: string) => {
+    setIsolatedValves(prev => {
+      const isAlready = prev.includes(valveId);
+      const next = isAlready ? prev.filter(v => v !== valveId) : [...prev, valveId];
+      
+      const timeStr = new Date().toLocaleTimeString();
+      setSmsToast({
+        id: `toast-valve-${Date.now()}`,
+        text: isAlready
+          ? `Valve ${valveId} reopened to regular pipeline flow`
+          : `Valve ${valveId} ISOLATED. Rupture containment active.`,
+        time: timeStr,
+        phone: 'Telemetry'
+      });
+      return next;
+    });
+  };
+
   // Toggle simulation with automated SMS dispatch
   const handleToggleSimulation = () => {
     const nextState = !isSimulating;
@@ -578,7 +817,7 @@ export default function App() {
       recipientPhone: smsConfig.phoneNumber,
       recipientName: smsConfig.name,
       direction: 'OUTBOUND_ALERT',
-      messageText: `🔔 [SCADA TEST ALERT] Emergency SMS Gateway verification from Smart City Water Monitor. Protocol verified for ${smsConfig.name} (${smsConfig.role}). Gateway: ${smsConfig.smsGateway}.`,
+      messageText: `🔔 [SCADA TEST ALERT] Emergency SMS Gateway verification from Smart City Water Monitor. Protocol verified for ${smsConfig.name} (${smsConfig.role}). Dispatch destination: ${smsConfig.phoneNumber} (Recipient ID: ${USER_ALERT_PHONE}). Gateway: ${smsConfig.smsGateway}.`,
       severity: 'INFO',
       status: 'Delivered'
     };
@@ -593,17 +832,25 @@ export default function App() {
 
   const handleSaveSmsSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    setSmsConfig(prev => ({
-      ...prev,
-      phoneNumber: smsPhoneInput,
+    const formattedPhone = formatPhoneNumber(smsPhoneInput) || smsPhoneInput;
+    const updatedConfig: SmsRecipientConfig = {
+      ...smsConfig,
+      phoneNumber: formattedPhone,
       name: smsNameInput,
       smsGateway: smsGatewayInput
-    }));
+    };
+    setSmsConfig(updatedConfig);
+    setSmsPhoneInput(formattedPhone);
+    try {
+      localStorage.setItem('leaknova_sms_config', JSON.stringify(updatedConfig));
+    } catch {
+      // ignore
+    }
     setSmsToast({
       id: `toast-${Date.now()}`,
-      text: `SMS Receiving settings saved for ${smsNameInput} (${smsPhoneInput})`,
+      text: `SMS Receiving settings saved for ${smsNameInput} (${formattedPhone})`,
       time: 'Just now',
-      phone: smsPhoneInput
+      phone: formattedPhone
     });
   };
 
@@ -1000,30 +1247,85 @@ export default function App() {
         {activeTab === 'live_monitoring' && (
           <div className="space-y-6">
             <section aria-label="Hydraulic Visualizations" className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Panel 1: Network Map (Localization) */}
+              {/* Panel 1: Network Map (Localization) - Upgraded with 3D Isometric CAD Digital Twin */}
               <div className="bg-white rounded-lg border border-gray-200 shadow-xs flex flex-col overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="px-5 py-3.5 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3 bg-white">
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-base font-bold text-gray-900">Panel 1: Network Map (Localization)</h2>
-                      <span className="text-xs px-2 py-0.5 rounded font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                        Topology View
+                      <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wide">
+                        {cadViewMode === 'interactive_3d'
+                          ? '3D Animated Twin'
+                          : cadViewMode === 'isometric_3d'
+                          ? '3D CAD Blueprint'
+                          : '2D Schematic Graph'}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      EPANET industrial piping network with optimized sensor placements
+                      {cadViewMode === 'interactive_3d'
+                        ? 'Interactive 3D WebGL hydraulic network: 360° orbit rotation, zoom, animated water flow & leak fountain'
+                        : cadViewMode === 'isometric_3d'
+                        ? 'High-fidelity isometric CAD engineering model with real-time pressure & rupture telemetry'
+                        : 'EPANET industrial piping network with optimized sensor placements'}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* View Switcher: Interactive 3D vs 3D CAD Twin vs 2D Schematic */}
+                    <div className="flex items-center gap-0.5 bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
+                      <button
+                        onClick={() => setCadViewMode('interactive_3d')}
+                        className={`px-2.5 py-1 rounded-md font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                          cadViewMode === 'interactive_3d'
+                            ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                        title="Interactive 3D WebGL Digital Twin (Rotate, Zoom, Animate)"
+                      >
+                        <Orbit className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Interactive 3D</span>
+                      </button>
+                      <button
+                        onClick={() => setCadViewMode('isometric_3d')}
+                        className={`px-2.5 py-1 rounded-md font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                          cadViewMode === 'isometric_3d'
+                            ? 'bg-white text-blue-700 shadow-2xs'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                        title="Switch to 3D Isometric CAD Digital Twin"
+                      >
+                        <Box className="w-3.5 h-3.5" />
+                        <span>CAD Blueprint</span>
+                      </button>
+                      <button
+                        onClick={() => setCadViewMode('schematic_2d')}
+                        className={`px-2.5 py-1 rounded-md font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                          cadViewMode === 'schematic_2d'
+                            ? 'bg-white text-blue-700 shadow-2xs'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                        title="Switch to 2D EPANET Topology Schematic"
+                      >
+                        <Layers className="w-3.5 h-3.5" />
+                        <span>2D Schematic</span>
+                      </button>
+                    </div>
+
                     {isSimulating ? (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+                      isolatedValves.includes('V-108A') && isolatedValves.includes('V-108B') ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300">
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>VALVES ISOLATED • CONTAINED</span>
                         </span>
-                        RUPTURE LOCALIZED
-                      </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+                          </span>
+                          RUPTURE LOCALIZED (J-108)
+                        </span>
+                      )
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -1033,136 +1335,473 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="p-4 bg-slate-50/50 flex-1 flex flex-col justify-center">
-                  <div className="relative w-full aspect-4/3 bg-white rounded-lg border border-gray-200 shadow-2xs overflow-hidden">
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
-                      <defs>
-                        <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
-                          <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#f1f5f9" strokeWidth="1" />
-                        </pattern>
-                      </defs>
-                      <rect width="100%" height="100%" fill="url(#smallGrid)" />
-                    </svg>
+                <div className="p-4 bg-slate-50/50 flex-1 flex flex-col justify-between">
+                  {cadViewMode === 'interactive_3d' ? (
+                    /* Interactive 3D WebGL Digital Twin Viewport */
+                    <div className="space-y-3">
+                      <Epanet3DViewer
+                        isSimulating={isSimulating}
+                        isolatedValves={isolatedValves}
+                        onToggleValve={toggleValveIsolation}
+                        selectedHotspotId={selectedHotspot?.id}
+                        onSelectHotspot={setSelectedHotspot}
+                        showSensors={cadShowSensors}
+                        showValves={cadShowValves}
+                        showStress={cadShowStress}
+                        showDimensions={cadShowDimensions}
+                      />
+                    </div>
+                  ) : cadViewMode === 'isometric_3d' ? (
+                    /* 3D Isometric CAD Digital Twin Viewport */
+                    <div className="space-y-3">
+                      {/* CAD Viewport Toolbar */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[11px] font-semibold text-gray-500 uppercase">Layers:</span>
+                          <button
+                            onClick={() => setCadShowSensors(!cadShowSensors)}
+                            className={`px-2 py-0.5 rounded text-[11px] font-medium border cursor-pointer transition-colors ${
+                              cadShowSensors
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 font-semibold'
+                                : 'bg-gray-100 text-gray-500 border-gray-200 opacity-60'
+                            }`}
+                          >
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1"></span>
+                            Sensors (6)
+                          </button>
+                          <button
+                            onClick={() => setCadShowValves(!cadShowValves)}
+                            className={`px-2 py-0.5 rounded text-[11px] font-medium border cursor-pointer transition-colors ${
+                              cadShowValves
+                                ? 'bg-amber-50 text-amber-800 border-amber-300 font-semibold'
+                                : 'bg-gray-100 text-gray-500 border-gray-200 opacity-60'
+                            }`}
+                          >
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1"></span>
+                            Valves (2)
+                          </button>
+                          <button
+                            onClick={() => setCadShowStress(!cadShowStress)}
+                            className={`px-2 py-0.5 rounded text-[11px] font-medium border cursor-pointer transition-colors ${
+                              cadShowStress
+                                ? 'bg-red-50 text-red-700 border-red-300 font-semibold'
+                                : 'bg-gray-100 text-gray-500 border-gray-200 opacity-60'
+                            }`}
+                          >
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 mr-1"></span>
+                            Stress & Alerts
+                          </button>
+                          <button
+                            onClick={() => setCadShowDimensions(!cadShowDimensions)}
+                            className={`px-2 py-0.5 rounded text-[11px] font-medium border cursor-pointer transition-colors ${
+                              cadShowDimensions
+                                ? 'bg-blue-50 text-blue-700 border-blue-300 font-semibold'
+                                : 'bg-gray-100 text-gray-500 border-gray-200 opacity-60'
+                            }`}
+                          >
+                            Dimensions & Specs
+                          </button>
+                        </div>
 
-                    <svg viewBox="0 0 760 400" className="w-full h-full relative z-10" aria-label="EPANET Hydraulic Network Map">
-                      <defs>
-                        <linearGradient id="mainPipeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <stop offset="0%" stopColor="#0284c7" />
-                          <stop offset="100%" stopColor="#0ea5e9" />
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                          <feGaussianBlur stdDeviation="3" result="blur" />
-                          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                      </defs>
+                        {/* Zoom Controls */}
+                        <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-md p-0.5 shadow-2xs">
+                          <button
+                            onClick={() => setCadZoom(prev => Math.min(1.4, prev + 0.1))}
+                            className="p-1 text-gray-600 hover:text-gray-900 rounded cursor-pointer"
+                            title="Zoom In"
+                          >
+                            <ZoomIn className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-[10px] font-mono text-gray-600 px-1">
+                            {Math.round(cadZoom * 100)}%
+                          </span>
+                          <button
+                            onClick={() => setCadZoom(prev => Math.max(0.9, prev - 0.1))}
+                            className="p-1 text-gray-600 hover:text-gray-900 rounded cursor-pointer"
+                            title="Zoom Out"
+                          >
+                            <ZoomOut className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setCadZoom(1.0)}
+                            className="px-1.5 py-0.5 text-[10px] text-gray-500 hover:text-gray-800 rounded font-semibold cursor-pointer border-l border-gray-100"
+                            title="Reset Zoom"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </div>
 
-                      {PIPE_SEGMENTS.map((pipe, idx) => {
-                        const fromNode = NETWORK_NODES.find(n => n.id === pipe.from);
-                        const toNode = NETWORK_NODES.find(n => n.id === pipe.to);
-                        if (!fromNode || !toNode) return null;
-                        const isNearLeak = isSimulating && (pipe.from === 'J-108' || pipe.to === 'J-108');
+                      {/* Main CAD Interactive Canvas */}
+                      <div className="relative w-full aspect-16/10 rounded-lg overflow-hidden bg-slate-900 border border-gray-300 shadow-inner group select-none">
+                        {/* Background CAD 3D Isometric Render */}
+                        <img
+                          src={ISOMETRIC_CAD_IMAGE_URL}
+                          alt="EPANET 3D Isometric Industrial Piping Network Model"
+                          className="w-full h-full object-cover transition-transform duration-200 origin-center"
+                          style={{ transform: `scale(${cadZoom})` }}
+                        />
 
-                        return (
-                          <g key={`pipe-${idx}`}>
-                            <line x1={fromNode.x} y1={fromNode.y} x2={toNode.x} y2={toNode.y} stroke="#cbd5e1" strokeWidth={pipe.strokeWidth + 3} strokeLinecap="round" />
-                            <line x1={fromNode.x} y1={fromNode.y} x2={toNode.x} y2={toNode.y} stroke={isNearLeak ? '#f87171' : 'url(#mainPipeGrad)'} strokeWidth={pipe.strokeWidth} strokeLinecap="round" strokeDasharray={isNearLeak ? '6 3' : undefined} />
-                            <circle cx={(fromNode.x + toNode.x) / 2} cy={(fromNode.y + toNode.y) / 2} r={2} fill={isNearLeak ? '#dc2626' : '#0369a1'} />
-                          </g>
-                        );
-                      })}
+                        {/* Subtle blueprint grid overlay */}
+                        <div className="absolute inset-0 pointer-events-none opacity-20 bg-[linear-gradient(to_right,#ffffff15_1px,transparent_1px),linear-gradient(to_bottom,#ffffff15_1px,transparent_1px)] bg-[size:30px_30px]" />
 
-                      {NETWORK_NODES.map((node) => {
-                        const isLeak = node.id === 'J-108';
-                        const isSelected = selectedNode?.id === node.id;
+                        {/* 3D CAD Orientation Triad in Top-Right */}
+                        <div className="absolute top-2.5 right-2.5 bg-slate-900/85 backdrop-blur-xs border border-slate-700/80 text-white rounded p-1.5 shadow-md flex items-center gap-2 pointer-events-none">
+                          <div className="w-7 h-7 border border-slate-600 rounded bg-slate-800 flex flex-col items-center justify-center text-[8px] font-mono font-bold text-slate-300">
+                            <span>TOP</span>
+                            <span className="text-[6px] text-cyan-400">ISO 30°</span>
+                          </div>
+                          <div className="text-[9px] font-mono leading-tight">
+                            <div className="text-emerald-400 font-bold">EPANET CAD</div>
+                            <div className="text-gray-400">DMA-04 Loop</div>
+                          </div>
+                        </div>
 
-                        if (node.type === 'reservoir') {
+                        {/* Interactive Hotspots Overlaid on CAD Piping */}
+                        {ISOMETRIC_HOTSPOTS.map((hotspot) => {
+                          const isSelected = selectedHotspot?.id === hotspot.id;
+                          const isLeak = hotspot.id === 'J-108';
+                          const isValve = hotspot.type === 'valve';
+                          const isSensor = hotspot.type === 'sensor';
+                          const isPump = hotspot.type === 'pump';
+                          const isIsolated = isolatedValves.includes(hotspot.id);
+
+                          if (isSensor && !cadShowSensors) return null;
+                          if (isValve && !cadShowValves) return null;
+
                           return (
-                            <g key={node.id} className="cursor-pointer" onClick={() => setSelectedNode(node)} role="button" tabIndex={0} aria-label={`Reservoir ${node.label}`}>
-                              <rect x={node.x - 22} y={node.y - 20} width={44} height={40} rx={6} fill="#0284c7" stroke="#0369a1" strokeWidth={2} />
-                              <text x={node.x} y={node.y + 4} textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="bold">R-1</text>
-                              <text x={node.x} y={node.y - 26} textAnchor="middle" fill="#334155" fontSize="10" fontWeight="600">Main Reservoir</text>
+                            <div
+                              key={hotspot.id}
+                              style={{ left: `${hotspot.xPct}%`, top: `${hotspot.yPct}%` }}
+                              className="absolute -translate-x-1/2 -translate-y-1/2 z-20 cursor-pointer"
+                              onClick={() => setSelectedHotspot(hotspot)}
+                            >
+                              {/* RUPTURE NODE J-108 (Target) */}
+                              {isLeak && (
+                                <div className="relative flex items-center justify-center">
+                                  {isSimulating ? (
+                                    <>
+                                      {/* Glowing animated pulsing rupture beacon */}
+                                      <span className="absolute w-12 h-12 rounded-full bg-red-500 opacity-60 animate-ping pointer-events-none" />
+                                      <span className="absolute w-8 h-8 rounded-full bg-red-600/40 animate-pulse pointer-events-none" />
+                                      <button
+                                        className="relative p-1.5 bg-red-600 text-white rounded-full shadow-lg border-2 border-white flex items-center justify-center hover:scale-110 transition-transform cursor-pointer"
+                                        title="Click to inspect Node J-108 Rupture Telemetry"
+                                      >
+                                        <AlertTriangle className="w-4 h-4 fill-white text-red-600" />
+                                      </button>
+
+                                      {/* Floating HUD Callout over rupture */}
+                                      <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-red-950/95 text-white border border-red-500 px-2.5 py-1 rounded shadow-xl whitespace-nowrap text-[10px] pointer-events-none animate-bounce">
+                                        <div className="font-extrabold text-red-300 flex items-center gap-1">
+                                          <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                          LEAK DETECTED: J-108 (85 L/s)
+                                        </div>
+                                        <div className="text-[9px] text-gray-200 font-mono">
+                                          P: 44.6 psi (-18.4) • Ø 83.9mm fracture
+                                        </div>
+                                        <div className="w-2 h-2 bg-red-950 border-r border-b border-red-500 transform rotate-45 mx-auto -mb-2 mt-0.5"></div>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <button
+                                      className={`p-1 rounded-full shadow-sm border border-white text-[9px] font-bold ${
+                                        isSelected ? 'bg-blue-600 text-white ring-2 ring-blue-400' : 'bg-slate-700 text-slate-200'
+                                      }`}
+                                    >
+                                      J-108
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* ISOLATION VALVES V-108A & V-108B */}
+                              {isValve && (
+                                <div className="relative group/valve">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleValveIsolation(hotspot.id);
+                                    }}
+                                    className={`px-1.5 py-0.5 rounded shadow-md text-[9px] font-bold flex items-center gap-1 border border-white cursor-pointer transition-transform hover:scale-110 ${
+                                      isIsolated
+                                        ? 'bg-amber-500 text-slate-900 ring-2 ring-amber-300 animate-pulse'
+                                        : 'bg-emerald-600 text-white'
+                                    }`}
+                                    title={`Click to toggle ${hotspot.id} Isolation`}
+                                  >
+                                    <Wrench className="w-2.5 h-2.5" />
+                                    <span>{hotspot.id}</span>
+                                    <span className="text-[7px] uppercase opacity-90">
+                                      {isIsolated ? 'CLOSED' : 'OPEN'}
+                                    </span>
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* SENSORS S-01 to S-06 */}
+                              {isSensor && (
+                                <div className="relative group/sensor">
+                                  <button
+                                    className={`px-1.5 py-0.5 rounded-full shadow-md text-[9px] font-mono font-bold flex items-center gap-1 border border-white cursor-pointer transition-transform hover:scale-110 ${
+                                      isSelected
+                                        ? 'bg-emerald-500 text-white ring-2 ring-white scale-110'
+                                        : 'bg-emerald-600/90 text-white'
+                                    }`}
+                                    title={`${hotspot.label} • Click to inspect`}
+                                  >
+                                    <Radio className="w-2.5 h-2.5" />
+                                    <span>{hotspot.id}</span>
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* BOOSTER PUMP PS-01 */}
+                              {isPump && (
+                                <div className="relative">
+                                  <button
+                                    className="px-2 py-0.5 rounded bg-blue-600 text-white font-mono text-[9px] font-bold flex items-center gap-1 shadow-md border border-white hover:scale-105 cursor-pointer"
+                                    title="Booster Pump PS-01 • 35.5 kW"
+                                  >
+                                    <Gauge className="w-2.5 h-2.5" />
+                                    <span>PS-01</span>
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* CROSS JUNCTION J-102 & RESERVOIR R-1 */}
+                              {(hotspot.type === 'junction' || hotspot.type === 'reservoir') && (
+                                <button
+                                  className={`px-1.5 py-0.5 rounded text-[8.5px] font-mono font-semibold border border-white/80 shadow-xs cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                                      : 'bg-slate-800/90 text-slate-200'
+                                  }`}
+                                >
+                                  {hotspot.id}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Engineering Dimensions Overlay (CAD Blueprint Specs) */}
+                        {cadShowDimensions && (
+                          <div className="absolute inset-0 pointer-events-none text-[9px] font-mono text-cyan-200/90">
+                            <div className="absolute bottom-3 right-4 bg-slate-900/80 px-2 py-1 rounded border border-cyan-800/60">
+                              <span>Main Arterial: 16" (406mm) DI Class 52 • 250 psi Rating</span>
+                            </div>
+                            <div className="absolute top-4 left-4 bg-slate-900/80 px-2 py-1 rounded border border-cyan-800/60">
+                              <span>Bulk Feed: 24" Transmission • C-Factor 130</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Bottom-Left Legend */}
+                        <div className="absolute bottom-2.5 left-2.5 bg-slate-900/90 backdrop-blur-xs p-2 rounded border border-slate-700 text-[10px] text-gray-300 space-y-1 shadow-lg pointer-events-none">
+                          <div className="font-semibold text-white text-[10px] border-b border-slate-800 pb-0.5">
+                            CAD Network Legend
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-3.5 h-1.5 bg-sky-500 rounded-xs"></span>
+                            <span>16"-24" Arterial Pipe (Blue)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            <span className="text-emerald-400 font-medium">S1-S6 Sensors</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                            <span>V-108A/B Isolation Valves</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+                            <span className="text-red-400 font-bold">Rupture Zone (J-108)</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* 2D Schematic Vector Graph */
+                    <div className="relative w-full aspect-4/3 bg-white rounded-lg border border-gray-200 shadow-2xs overflow-hidden">
+                      <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                          <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#f1f5f9" strokeWidth="1" />
+                          </pattern>
+                        </defs>
+                        <rect width="100%" height="100%" fill="url(#smallGrid)" />
+                      </svg>
+
+                      <svg viewBox="0 0 760 400" className="w-full h-full relative z-10" aria-label="EPANET Hydraulic Network Map">
+                        <defs>
+                          <linearGradient id="mainPipeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#0284c7" />
+                            <stop offset="100%" stopColor="#0ea5e9" />
+                          </linearGradient>
+                          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur stdDeviation="3" result="blur" />
+                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                          </filter>
+                        </defs>
+
+                        {PIPE_SEGMENTS.map((pipe, idx) => {
+                          const fromNode = NETWORK_NODES.find(n => n.id === pipe.from);
+                          const toNode = NETWORK_NODES.find(n => n.id === pipe.to);
+                          if (!fromNode || !toNode) return null;
+                          const isNearLeak = isSimulating && (pipe.from === 'J-108' || pipe.to === 'J-108');
+
+                          return (
+                            <g key={`pipe-${idx}`}>
+                              <line x1={fromNode.x} y1={fromNode.y} x2={toNode.x} y2={toNode.y} stroke="#cbd5e1" strokeWidth={pipe.strokeWidth + 3} strokeLinecap="round" />
+                              <line x1={fromNode.x} y1={fromNode.y} x2={toNode.x} y2={toNode.y} stroke={isNearLeak ? '#f87171' : 'url(#mainPipeGrad)'} strokeWidth={pipe.strokeWidth} strokeLinecap="round" strokeDasharray={isNearLeak ? '6 3' : undefined} />
+                              <circle cx={(fromNode.x + toNode.x) / 2} cy={(fromNode.y + toNode.y) / 2} r={2} fill={isNearLeak ? '#dc2626' : '#0369a1'} />
                             </g>
                           );
-                        }
+                        })}
 
-                        if (node.type === 'pump') {
+                        {NETWORK_NODES.map((node) => {
+                          const isLeak = node.id === 'J-108';
+                          const isSelected = selectedNode?.id === node.id;
+
+                          if (node.type === 'reservoir') {
+                            return (
+                              <g key={node.id} className="cursor-pointer" onClick={() => setSelectedNode(node)} role="button" tabIndex={0} aria-label={`Reservoir ${node.label}`}>
+                                <rect x={node.x - 22} y={node.y - 20} width={44} height={40} rx={6} fill="#0284c7" stroke="#0369a1" strokeWidth={2} />
+                                <text x={node.x} y={node.y + 4} textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="bold">R-1</text>
+                                <text x={node.x} y={node.y - 26} textAnchor="middle" fill="#334155" fontSize="10" fontWeight="600">Main Reservoir</text>
+                              </g>
+                            );
+                          }
+
+                          if (node.type === 'pump') {
+                            return (
+                              <g key={node.id} className="cursor-pointer" onClick={() => setSelectedNode(node)} role="button" tabIndex={0} aria-label={`Pump station ${node.label}`}>
+                                <circle cx={node.x} cy={node.y} r={15} fill="#0ea5e9" stroke="#0284c7" strokeWidth={2} />
+                                <text x={node.x} y={node.y + 3.5} textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">PS</text>
+                                <text x={node.x} y={node.y + 28} textAnchor="middle" fill="#475569" fontSize="9" fontWeight="500">PS-01</text>
+                              </g>
+                            );
+                          }
+
+                          if (node.type === 'sensor') {
+                            return (
+                              <g key={node.id} className="cursor-pointer group" onClick={() => setSelectedNode(node)} role="button" tabIndex={0} aria-label={`Optimized Sensor ${node.label}`}>
+                                <circle cx={node.x} cy={node.y} r={isSelected ? 11 : 9} fill="#10b981" stroke="#ffffff" strokeWidth={2.5} className="shadow-sm transition-all" />
+                                <circle cx={node.x} cy={node.y} r={4} fill="#065f46" />
+                                <text x={node.x} y={node.y - 13} textAnchor="middle" fill="#047857" fontSize="9.5" fontWeight="bold">{node.id}</text>
+                              </g>
+                            );
+                          }
+
                           return (
-                            <g key={node.id} className="cursor-pointer" onClick={() => setSelectedNode(node)} role="button" tabIndex={0} aria-label={`Pump station ${node.label}`}>
-                              <circle cx={node.x} cy={node.y} r={15} fill="#0ea5e9" stroke="#0284c7" strokeWidth={2} />
-                              <text x={node.x} y={node.y + 3.5} textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">PS</text>
-                              <text x={node.x} y={node.y + 28} textAnchor="middle" fill="#475569" fontSize="9" fontWeight="500">PS-01</text>
-                            </g>
-                          );
-                        }
-
-                        if (node.type === 'sensor') {
-                          return (
-                            <g key={node.id} className="cursor-pointer group" onClick={() => setSelectedNode(node)} role="button" tabIndex={0} aria-label={`Optimized Sensor ${node.label}`}>
-                              <circle cx={node.x} cy={node.y} r={isSelected ? 11 : 9} fill="#10b981" stroke="#ffffff" strokeWidth={2.5} className="shadow-sm transition-all" />
-                              <circle cx={node.x} cy={node.y} r={4} fill="#065f46" />
-                              <text x={node.x} y={node.y - 13} textAnchor="middle" fill="#047857" fontSize="9.5" fontWeight="bold">{node.id}</text>
-                            </g>
-                          );
-                        }
-
-                        return (
-                          <g key={node.id} className="cursor-pointer" onClick={() => setSelectedNode(node)} role="button" tabIndex={0} aria-label={`Junction node ${node.label}`}>
-                            {isLeak && isSimulating ? (
-                              <g>
-                                <circle cx={node.x} cy={node.y} r={24} fill="none" stroke="#ef4444" strokeWidth={2} className="animate-ping origin-center" style={{ transformOrigin: `${node.x}px ${node.y}px` }} />
-                                <circle cx={node.x} cy={node.y} r={16} fill="#fee2e2" stroke="#dc2626" strokeWidth={2} opacity={0.8} />
-                                <circle cx={node.x} cy={node.y} r={9} fill="#dc2626" stroke="#ffffff" strokeWidth={2} filter="url(#glow)" />
-                                <g transform={`translate(${node.x - 55}, ${node.y - 48})`}>
-                                  <rect width={110} height={24} rx={4} fill="#dc2626" stroke="#b91c1c" strokeWidth={1} />
-                                  <text x={55} y={16} textAnchor="middle" fill="#ffffff" fontSize="10.5" fontWeight="bold">LEAK: J-108 (85 L/s)</text>
-                                  <polygon points="50,24 60,24 55,29" fill="#dc2626" />
+                            <g key={node.id} className="cursor-pointer" onClick={() => setSelectedNode(node)} role="button" tabIndex={0} aria-label={`Junction node ${node.label}`}>
+                              {isLeak && isSimulating ? (
+                                <g>
+                                  <circle cx={node.x} cy={node.y} r={24} fill="none" stroke="#ef4444" strokeWidth={2} className="animate-ping origin-center" style={{ transformOrigin: `${node.x}px ${node.y}px` }} />
+                                  <circle cx={node.x} cy={node.y} r={16} fill="#fee2e2" stroke="#dc2626" strokeWidth={2} opacity={0.8} />
+                                  <circle cx={node.x} cy={node.y} r={9} fill="#dc2626" stroke="#ffffff" strokeWidth={2} filter="url(#glow)" />
+                                  <g transform={`translate(${node.x - 55}, ${node.y - 48})`}>
+                                    <rect width={110} height={24} rx={4} fill="#dc2626" stroke="#b91c1c" strokeWidth={1} />
+                                    <text x={55} y={16} textAnchor="middle" fill="#ffffff" fontSize="10.5" fontWeight="bold">LEAK: J-108 (85 L/s)</text>
+                                    <polygon points="50,24 60,24 55,29" fill="#dc2626" />
+                                  </g>
                                 </g>
-                              </g>
-                            ) : (
-                              <g>
-                                <circle cx={node.x} cy={node.y} r={isSelected ? 7 : 5} fill={isSelected ? '#2563eb' : '#64748b'} stroke="#ffffff" strokeWidth={2} />
-                                <text x={node.x} y={node.y + 16} textAnchor="middle" fill="#64748b" fontSize="9" fontWeight="500">{node.id}</text>
-                              </g>
+                              ) : (
+                                <g>
+                                  <circle cx={node.x} cy={node.y} r={isSelected ? 7 : 5} fill={isSelected ? '#2563eb' : '#64748b'} stroke="#ffffff" strokeWidth={2} />
+                                  <text x={node.x} y={node.y + 16} textAnchor="middle" fill="#64748b" fontSize="9" fontWeight="500">{node.id}</text>
+                                </g>
+                              )}
+                            </g>
+                          );
+                        })}
+                      </svg>
+
+                      <div className="absolute bottom-2 left-2 bg-white/95 backdrop-blur-xs p-2 rounded border border-gray-200 text-[10px] text-gray-600 space-y-1 shadow-2xs">
+                        <div className="font-semibold text-gray-800 text-[11px] mb-1">Network Legend</div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-4 h-1 bg-sky-500 rounded-sm"></span>
+                          <span>Pipes (Cyan/Blue Strokes)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white"></span>
+                          <span className="font-medium text-emerald-800">Optimized Sensors (S1-S6)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-red-600 border border-white animate-pulse"></span>
+                          <span className="font-semibold text-red-700">Localized Leak (Node J-108)</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Component Inspector & Telemetry Bar */}
+                  <div className="mt-3 bg-white p-3.5 rounded-md border border-gray-200 text-xs shadow-2xs">
+                    {selectedHotspot ? (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-gray-900 text-sm">{selectedHotspot.label}</span>
+                            <span className="px-2 py-0.2 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                              {selectedHotspot.subType || selectedHotspot.type}
+                            </span>
+                            {selectedHotspot.id === 'J-108' && isSimulating && (
+                              <span className="px-2 py-0.2 rounded text-[10px] font-bold bg-red-100 text-red-700 animate-pulse">
+                                RUPTURE ACTIVE
+                              </span>
                             )}
-                          </g>
-                        );
-                      })}
-                    </svg>
+                            {selectedHotspot.type === 'valve' && (
+                              <span className={`px-2 py-0.2 rounded text-[10px] font-bold ${
+                                isolatedValves.includes(selectedHotspot.id)
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}>
+                                {isolatedValves.includes(selectedHotspot.id) ? 'VALVE ISOLATED' : 'VALVE OPEN'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-gray-500 font-mono">
+                            Specification: {selectedHotspot.spec}
+                          </div>
+                          <div className="text-gray-600 text-[11px]">
+                            {selectedHotspot.description}
+                          </div>
+                        </div>
 
-                    <div className="absolute bottom-2 left-2 bg-white/95 backdrop-blur-xs p-2 rounded border border-gray-200 text-[10px] text-gray-600 space-y-1 shadow-2xs">
-                      <div className="font-semibold text-gray-800 text-[11px] mb-1">Network Legend</div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-4 h-1 bg-sky-500 rounded-sm"></span>
-                        <span>Pipes (Cyan/Blue Strokes)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white"></span>
-                        <span className="font-medium text-emerald-800">Optimized Sensors (S1-S6)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-red-600 border border-white animate-pulse"></span>
-                        <span className="font-semibold text-red-700">Localized Leak (Node J-108)</span>
-                      </div>
-                    </div>
-                  </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2 font-mono">
+                            <div className="bg-gray-50 border border-gray-200 px-2.5 py-1 rounded text-center">
+                              <span className="text-[9px] text-gray-400 block">PRESSURE</span>
+                              <span className="font-bold text-gray-800">
+                                {isSimulating ? selectedHotspot.pressureSim : selectedHotspot.pressureNominal} psi
+                              </span>
+                            </div>
+                            <div className="bg-blue-50 border border-blue-200 px-2.5 py-1 rounded text-center">
+                              <span className="text-[9px] text-blue-500 block">FLOW RATE</span>
+                              <span className="font-bold text-blue-700">
+                                {selectedHotspot.flowLps} L/s
+                              </span>
+                            </div>
+                          </div>
 
-                  <div className="mt-3 bg-white p-3 rounded-md border border-gray-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900">
-                        {selectedNode ? selectedNode.label : 'Active Sector:'}
-                      </span>
-                      <span className="text-gray-500">
-                        {selectedNode ? selectedNode.description : 'Click any pipe junction or sensor marker to inspect live telemetry.'}
-                      </span>
-                    </div>
-                    {selectedNode && (
-                      <div className="flex items-center gap-3 font-mono shrink-0">
-                        <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-700">
-                          P: {isSimulating ? selectedNode.pressureSim : selectedNode.pressureNominal} psi
-                        </span>
-                        <span className="bg-blue-50 px-2 py-0.5 rounded text-blue-700">
-                          Q: {selectedNode.flowLps} L/s
-                        </span>
+                          {selectedHotspot.type === 'valve' && (
+                            <button
+                              onClick={() => toggleValveIsolation(selectedHotspot.id)}
+                              className={`px-3 py-1.5 rounded font-bold text-xs cursor-pointer transition-colors ${
+                                isolatedValves.includes(selectedHotspot.id)
+                                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                              }`}
+                            >
+                              {isolatedValves.includes(selectedHotspot.id) ? 'Reopen Valve' : 'Isolate Valve'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-gray-500 text-xs">
+                        Select any junction, sensor, or valve on the CAD model to inspect real-time hydraulic parameters.
                       </div>
                     )}
                   </div>
@@ -1937,6 +2576,10 @@ export default function App() {
                       </div>
                       <div className="text-xs font-bold text-white mt-1">LeakNova SCADA Core</div>
                       <div className="text-[10px] text-gray-400">EPANET Gateway • PID: cqvdsywibtbdonsuuwpc</div>
+                      <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-mono border border-emerald-500/30">
+                        <Smartphone className="w-3 h-3 text-emerald-400" />
+                        <span>Recipient: {smsConfig.phoneNumber} ({USER_ALERT_PHONE})</span>
+                      </div>
                     </div>
 
                     {/* Message Thread */}
@@ -1986,13 +2629,50 @@ export default function App() {
                     </form>
                   </div>
 
-                  <div className="text-center text-xs text-gray-500">
-                    Live SMS relay configured for on-call engineer: <strong className="text-gray-800">{smsConfig.phoneNumber}</strong>
+                  <div className="text-center text-xs text-gray-500 flex items-center justify-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Live SMS relay configured for on-call recipient: <strong className="text-gray-900 font-mono">{smsConfig.phoneNumber}</strong></span>
                   </div>
                 </div>
               ) : (
                 /* Recipient & Gateway Settings Form */
                 <form onSubmit={handleSaveSmsSettings} className="space-y-5 bg-white p-5 rounded-lg border border-gray-200 shadow-2xs">
+                  {/* Verified Active Notification Target Status Card */}
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-emerald-100 text-emerald-700 rounded-full shrink-0 mt-0.5">
+                        <Smartphone className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-emerald-950 uppercase tracking-wide">Target Recipient Number</span>
+                          <span className="px-2 py-0.5 rounded bg-emerald-200/80 text-emerald-900 font-bold text-[10px]">
+                            ACTIVE & ROUTED
+                          </span>
+                        </div>
+                        <div className="font-mono text-base font-bold text-emerald-900 mt-0.5">
+                          {smsConfig.phoneNumber}
+                        </div>
+                        <div className="text-[11px] text-emerald-700 mt-0.5">
+                          Configured user number: <strong className="font-mono text-emerald-950">{USER_ALERT_PHONE}</strong> • Direct Telephony Relay
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSmsPhoneInput(USER_ALERT_PHONE_FORMATTED);
+                          setSmsNameInput('Chief On-Call Engineer');
+                        }}
+                        className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded text-xs font-semibold cursor-pointer shadow-2xs transition-colors flex items-center gap-1.5"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Reset to {USER_ALERT_PHONE}</span>
+                      </button>
+                    </div>
+                  </div>
+
                   <div>
                     <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-1">
                       On-Call Engineer Contact Details
@@ -2003,19 +2683,33 @@ export default function App() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-semibold text-gray-700 mb-1">
-                          Receiving Mobile Phone Number:
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-semibold text-gray-700">
+                            Receiving Mobile Phone Number:
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setSmsPhoneInput(USER_ALERT_PHONE_FORMATTED)}
+                            className="text-[11px] text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+                          >
+                            Use {USER_ALERT_PHONE}
+                          </button>
+                        </div>
                         <input
                           type="text"
                           value={smsPhoneInput}
                           onChange={(e) => setSmsPhoneInput(e.target.value)}
-                          placeholder="+1 (555) 349-2810"
+                          placeholder="+91 79754 53101 (or 7975453101)"
                           className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md font-mono focus:border-blue-500 focus:outline-hidden"
                           required
                         />
-                        {!isValidPhoneNumber(smsPhoneInput) && (
-                          <p className="text-[10px] text-red-600 mt-1">Please enter a valid phone number (10-15 digits).</p>
+                        {!isValidPhoneNumber(smsPhoneInput) ? (
+                          <p className="text-[10px] text-red-600 mt-1">Please enter a valid phone number (10-15 digits, e.g. 7975453101).</p>
+                        ) : (
+                          <p className="text-[10px] text-emerald-600 mt-1 flex items-center gap-1 font-mono">
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            <span>Preview: {formatPhoneNumber(smsPhoneInput)}</span>
+                          </p>
                         )}
                       </div>
 
@@ -2305,6 +2999,10 @@ export default function App() {
               <div className="flex justify-between">
                 <span className="text-gray-500">Isolation Plan:</span>
                 <span className="font-semibold text-gray-900">Valves V-108A & V-108B</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Alert Dispatched To:</span>
+                <span className="font-semibold text-emerald-700 font-mono">{smsConfig.phoneNumber} (Delivered)</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Field Lead SMS:</span>

@@ -4,7 +4,8 @@ import {
   getSimulatedDmaList,
   getSimulatedWorkOrders,
   DMA_BENCHMARK_LIST,
-  SENSOR_INVENTORY
+  SENSOR_INVENTORY,
+  ISOMETRIC_HOTSPOTS
 } from './dashboardData';
 
 test('DMA list reports 5 baseline municipal sectors with nominal metrics', () => {
@@ -47,3 +48,23 @@ test('Sensor inventory has 6 optimized loggers with >80% sensitivity scores', ()
     assert.equal(s.status, 'Online');
   });
 });
+
+test('ISOMETRIC_HOTSPOTS contains rupture node J-108, isolation valves, pump PS-01, and sensors', () => {
+  assert.ok(ISOMETRIC_HOTSPOTS.length >= 10);
+  const j108 = ISOMETRIC_HOTSPOTS.find((h) => h.id === 'J-108');
+  assert.ok(j108);
+  assert.equal(j108.type, 'leak');
+  assert.equal(j108.flowLps, 85);
+
+  const v108a = ISOMETRIC_HOTSPOTS.find((h) => h.id === 'V-108A');
+  const v108b = ISOMETRIC_HOTSPOTS.find((h) => h.id === 'V-108B');
+  assert.ok(v108a);
+  assert.ok(v108b);
+  assert.equal(v108a.type, 'valve');
+  assert.equal(v108b.type, 'valve');
+
+  const ps01 = ISOMETRIC_HOTSPOTS.find((h) => h.id === 'PS-01');
+  assert.ok(ps01);
+  assert.equal(ps01.type, 'pump');
+});
+
